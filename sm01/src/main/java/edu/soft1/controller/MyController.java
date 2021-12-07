@@ -1,11 +1,13 @@
 package edu.soft1.controller;
 
 import edu.soft1.pojo.User;
+import jdk.internal.org.objectweb.asm.tree.analysis.Value;
 import org.apache.commons.io.FilenameUtils;
 
 import org.apache.commons.io.IOUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -13,56 +15,86 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.ModelAndView;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 
 
-import java.io.InputStream;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 @Controller
 @RequestMapping(value = "/param1")
 public class MyController {
     @RequestMapping(value = "upload",method = {RequestMethod.POST})
-    public String fileUpload(MultipartFile image,HttpServletRequest request) throws IOException {
+    public String fileUpload(MultipartFile image, HttpServletRequest request, Map<String,Object>map) throws IOException {
         InputStream is = image.getInputStream();
         String filename = image.getOriginalFilename();
         String realPath = request.getServletContext().getRealPath("/images");
         System.out.println("上传路径="+realPath);
         FileOutputStream os = new FileOutputStream(new File(realPath,doFileName(filename)));
         int size = IOUtils.copy(is,os);
-        System.out.println("完成上传size="+size+"Byte");
         os.close();is.close();
-        return "welcome";
-    }
-
-
-    private String doFileName(String filename){
-         String extension = FilenameUtils.getExtension(filename);//获取文件的后缀名称
-         String uuid = UUID.randomUUID().toString();//获取uuid字符，规避名称重复
-        System.out.println("上传文件名="+uuid);
-        return uuid+"."+extension;
-    }
-
-    @RequestMapping(value = "upload2",method = {RequestMethod.POST})
-    public String fileUpload2(MultipartFile[] images,HttpServletRequest request) throws IOException {
-        for (MultipartFile image: images) {
-            InputStream is = image.getInputStream();
-            String filename = image.getOriginalFilename();
-            String realPath = request.getServletContext().getRealPath("/images");
-            System.out.println("上传路径="+realPath);
-            FileOutputStream os = new FileOutputStream(new File(realPath,doFileName(filename)));
-            int size = IOUtils.copy(is,os);
+        if(size>0){
+            map.put("msg","uploadSuccess");
             System.out.println("完成上传size="+size+"Byte");
-            os.close();is.close();
-           
         }
         return "welcome";
     }
 
+
+
+
+    @RequestMapping(value = "upload2",method = {RequestMethod.POST})
+    public String fileUpload2(MultipartFile[] images,HttpServletRequest request,Map<String,Object>map) throws IOException {
+        InputStream is = null;
+        FileOutputStream os = null;
+        int count = 0;
+        for (MultipartFile image: images) {
+             is = image.getInputStream();
+            String filename = image.getOriginalFilename();
+            System.out.println(
+                    "文件原名称"+filename
+            );
+            if (filename.equals("")){
+                System.out.println("空字符=");
+
+                continue;
+            };
+            String realPath = request.getServletContext().getRealPath("/images");
+            System.out.println("上传路径="+realPath);
+            os = new FileOutputStream(new File(realPath,doFileName(filename)));
+            int size = IOUtils.copy(is,os);
+            if (size>0){
+                count++;
+            }
+        }
+        os.close();is.close();
+        map.put("msg2",count);
+        System.out.println("上传成功"+count+"张");
+        return "welcome";
+    }
+    @RequestMapping(value = "/load.do/{filename}")
+   public void load(@PathVariable String filename, HttpServletRequest request, HttpServletResponse response) throws IOException{
+      response.setHeader("Content-Disposition","attachment;filename=");
+      String realPath = request.getServletContext().getRealPath("/images");
+        System.out.println(
+                "下载路径"+realPath
+        );
+        FileInputStream is = new FileInputStream(new File(realPath,filename));
+        OutputStream os = response.getOutputStream();
+        IOUtils.copy(is,os);
+        os.close();
+        is.close();
+
+   }
+    private String doFileName(String filename){
+        String extension = FilenameUtils.getExtension(filename);//获取文件的后缀名称
+        String uuid = UUID.randomUUID().toString();//获取uuid字符，规避名称重复
+        System.out.println("上传文件名="+uuid);
+        return uuid+"."+extension;
+    }
 
 /*    @RequestMapping("/hello")
     public String hello(){
